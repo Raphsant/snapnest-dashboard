@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AdminMediaFile } from '~/types/admin'
 
-const props = defineProps<{
+defineProps<{
   file: AdminMediaFile | null
   fullUrl: string | null
 }>()

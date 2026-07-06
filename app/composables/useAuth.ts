@@ -95,7 +95,7 @@ const _useAuth = () => {
 
       user.value = await loadAuthUser()
     } catch (error: unknown) {
-      throw new Error(translateAmplifyError(error))
+      throw new Error(translateAmplifyError(error), { cause: error })
     }
   }
 

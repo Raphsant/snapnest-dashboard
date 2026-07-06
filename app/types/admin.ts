@@ -17,14 +17,14 @@ export type AdminAgency = {
 
 export type AgencyRole = 'CLIENT' | 'STAFF'
 
-export type FolderType =
-  | 'PERSONAL'
-  | 'AGENCY_INTAKE'
-  | 'AGENCY_RAW'
-  | 'AGENCY_PRODUCED'
-  | 'APPROVED'
-  | 'REJECTED'
-  | 'NEEDS_MODIFICATIONS'
+export type FolderType
+  = | 'PERSONAL'
+    | 'AGENCY_INTAKE'
+    | 'AGENCY_RAW'
+    | 'AGENCY_PRODUCED'
+    | 'APPROVED'
+    | 'REJECTED'
+    | 'NEEDS_MODIFICATIONS'
 
 export type AdminAgencyMember = {
   id: string
