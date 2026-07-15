@@ -121,3 +121,73 @@ export type AdminFileViewUrl = {
 export type AdminBatchViewUrlsRequest = {
   fileIds: string[]
 }
+
+export type PipelineJobStatus
+  = | 'QUEUED'
+    | 'RUNNING'
+    | 'AWAITING_MANIFEST_APPROVAL'
+    | 'APPROVED'
+    | 'COMPLETED'
+    | 'FAILED'
+
+/**
+ * Manifest shape produced by the pipeline worker. Keys are snake_case to match
+ * the worker output stored verbatim in the `manifest` jsonb column.
+ */
+export type PipelineClip = {
+  id: string
+  approved: boolean | null
+  category: string
+  confidence: string
+  start_block: number
+  end_block: number
+  start: string
+  end: string
+  duration_seconds: number
+  title: string
+  summary: string
+  rationale: string
+  transcript: string
+  hook_prompt: string | null
+  close_prompt: string | null
+  post_copy: string | null
+  beep_timestamps: number[][]
+}
+
+/** Only `category` is guaranteed by the pipeline; the rest pass through unvalidated. */
+export type PipelineRejectedSegment = {
+  category?: string
+  start_block?: number
+  end_block?: number
+  topic?: string
+  reason?: string
+}
+
+export type PipelineManifest = {
+  source_video?: string
+  srt_file?: string
+  generated?: string
+  status?: string
+  clips: PipelineClip[]
+  rejected_segments: PipelineRejectedSegment[]
+}
+
+export type AdminPipelineJob = {
+  id: string
+  sourceFileId: string
+  agencyId: string
+  requestedById: string
+  status: PipelineJobStatus
+  currentStage: string | null
+  error: string | null
+  manifest: PipelineManifest | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type AdminPipelineJobListItem = AdminPipelineJob & {
+  sourceFile: {
+    id: string
+    fileName: string
+  }
+}

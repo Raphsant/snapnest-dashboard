@@ -5,6 +5,7 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@vueuse/nuxt'
   ],
+  devServer: { port: 3003 },
 
   ssr: false,
 

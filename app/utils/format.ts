@@ -1,4 +1,4 @@
-import type { AdminFileType } from '~/types/admin'
+import type { AdminFileType, PipelineJobStatus } from '~/types/admin'
 
 export function formatDate(iso: string): string {
   const date = new Date(iso)
@@ -11,6 +11,33 @@ export function formatDate(iso: string): string {
     month: 'short',
     day: 'numeric'
   })
+}
+
+export function formatDateTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) {
+    return iso
+  }
+
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+export function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return '—'
+  }
+
+  const total = Math.round(seconds)
+  const minutes = Math.floor(total / 60)
+  const secs = total % 60
+
+  return `${minutes}:${secs.toString().padStart(2, '0')}`
 }
 
 export function formatBytes(sizeBytes: string): string {
@@ -32,12 +59,16 @@ export function formatBytes(sizeBytes: string): string {
   return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
 }
 
-export function formatFolderType(type: string): string {
-  return type
+export function formatEnumLabel(value: string): string {
+  return value
     .toLowerCase()
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
+}
+
+export function formatFolderType(type: string): string {
+  return formatEnumLabel(type)
 }
 
 export function fileTypeIcon(fileType: AdminFileType): string {
@@ -81,4 +112,32 @@ export function getFetchErrorMessage(error: unknown): string {
   }
 
   return 'Something went wrong. Please try again.'
+}
+
+export function pipelineStatusColor(status: PipelineJobStatus) {
+  switch (status) {
+    case 'RUNNING':
+      return 'info' as const
+    case 'AWAITING_MANIFEST_APPROVAL':
+      return 'warning' as const
+    case 'APPROVED':
+      return 'primary' as const
+    case 'COMPLETED':
+      return 'success' as const
+    case 'FAILED':
+      return 'error' as const
+    default:
+      return 'neutral' as const
+  }
+}
+
+export function clipConfidenceColor(confidence: string) {
+  switch (confidence.toLowerCase()) {
+    case 'high':
+      return 'success' as const
+    case 'borderline':
+      return 'warning' as const
+    default:
+      return 'neutral' as const
+  }
 }

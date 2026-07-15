@@ -10,6 +10,13 @@ const links = [[{
   onSelect: () => {
     open.value = false
   }
+}, {
+  label: 'Pipeline',
+  icon: 'i-lucide-workflow',
+  to: '/pipeline',
+  onSelect: () => {
+    open.value = false
+  }
 }]] satisfies NavigationMenuItem[][]
 </script>
 
