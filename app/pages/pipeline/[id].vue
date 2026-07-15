@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { BreadcrumbItem, TableColumn } from '@nuxt/ui'
-import type { AdminPipelineJob, PipelineJobStatus, PipelineRejectedSegment } from '~/types/admin'
+import type {
+  AdminPipelineJob,
+  PipelineClip,
+  PipelineJobStatus,
+  PipelineRejectedSegment
+} from '~/types/admin'
 import {
   clipConfidenceColor,
   formatDateTime,
@@ -43,11 +48,17 @@ const approvalDecisions = ref<Record<string, boolean>>({})
 const decisionsTouched = ref(false)
 const confirmationOpen = ref(false)
 const isSubmitting = ref(false)
+const creativeConfirmationOpen = ref(false)
+const isSubmittingCreative = ref(false)
 
 const TERMINAL_STATUSES: PipelineJobStatus[] = ['COMPLETED', 'FAILED']
 
 const isApprovalMode = computed(() =>
   job.value?.status === 'AWAITING_MANIFEST_APPROVAL'
+)
+
+const isCreativeApprovalMode = computed(() =>
+  job.value?.status === 'AWAITING_CREATIVE_APPROVAL'
 )
 
 const hasUnsavedDecisions = computed(() =>
@@ -110,6 +121,12 @@ watch(
   { immediate: true }
 )
 
+watch(isCreativeApprovalMode, (active) => {
+  if (!active) {
+    creativeConfirmationOpen.value = false
+  }
+})
+
 onBeforeRouteLeave(() => {
   if (!hasUnsavedDecisions.value) {
     return true
@@ -152,6 +169,18 @@ function clipCardClass(clipId: string): string | undefined {
   return approvalDecisions.value[clipId]
     ? 'ring-2 ring-success'
     : 'opacity-75'
+}
+
+function showCreativeFields(clip: PipelineClip): boolean {
+  if (clip.approved !== true) {
+    return false
+  }
+
+  return isCreativeApprovalMode.value
+    || job.value?.status === 'CREATIVE_APPROVED'
+    || clip.hook_prompt !== null
+    || clip.close_prompt !== null
+    || clip.post_copy !== null
 }
 
 function getErrorStatus(error: unknown): number | undefined {
@@ -214,6 +243,44 @@ async function submitDecisions() {
     })
   } finally {
     isSubmitting.value = false
+  }
+}
+
+async function approveCreative() {
+  isSubmittingCreative.value = true
+
+  try {
+    const updatedJob = await api<AdminPipelineJob>(
+      `/admin/pipeline/jobs/${jobId}/approve-creative`,
+      { method: 'POST' }
+    )
+
+    creativeConfirmationOpen.value = false
+    job.value = updatedJob
+
+    toast.add({
+      title: 'Creative approved',
+      color: 'success'
+    })
+  } catch (submitError: unknown) {
+    const errorStatus = getErrorStatus(submitError)
+    creativeConfirmationOpen.value = false
+
+    if (errorStatus === 409) {
+      toast.add({
+        title: 'Job is no longer awaiting creative approval',
+        color: 'error'
+      })
+      await refresh()
+      return
+    }
+
+    toast.add({
+      title: getFetchErrorMessage(submitError),
+      color: 'error'
+    })
+  } finally {
+    isSubmittingCreative.value = false
   }
 }
 
@@ -377,6 +444,44 @@ const rejectedColumns: TableColumn<PipelineRejectedSegment>[] = [{
                   <span class="font-medium text-highlighted">Rationale: </span>{{ clip.rationale }}
                 </p>
 
+                <section
+                  v-if="showCreativeFields(clip)"
+                  class="space-y-3 rounded-md border border-default bg-elevated/25 p-3"
+                >
+                  <h4 class="text-sm font-semibold text-highlighted">
+                    Creative
+                  </h4>
+
+                  <dl class="space-y-3">
+                    <div>
+                      <dt class="text-xs font-medium text-muted">
+                        Hook prompt
+                      </dt>
+                      <dd class="mt-1 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-xs text-default">
+                        {{ clip.hook_prompt || '—' }}
+                      </dd>
+                    </div>
+
+                    <div>
+                      <dt class="text-xs font-medium text-muted">
+                        Close prompt
+                      </dt>
+                      <dd class="mt-1 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-xs text-default">
+                        {{ clip.close_prompt || '—' }}
+                      </dd>
+                    </div>
+
+                    <div>
+                      <dt class="text-xs font-medium text-muted">
+                        Post copy
+                      </dt>
+                      <dd class="mt-1 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-xs text-default">
+                        {{ clip.post_copy || '—' }}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+
                 <details class="group rounded-md border border-default bg-elevated/25 p-3">
                   <summary class="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-highlighted">
                     <UIcon
@@ -458,6 +563,24 @@ const rejectedColumns: TableColumn<PipelineRejectedSegment>[] = [{
             </div>
           </div>
         </section>
+
+        <section
+          v-if="isCreativeApprovalMode"
+          class="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-default bg-default/95 p-4 shadow-lg backdrop-blur"
+        >
+          <p class="text-sm text-muted">
+            Review the creative prompts and captions before continuing.
+          </p>
+
+          <UButton
+            type="button"
+            :disabled="isSubmittingCreative"
+            :loading="isSubmittingCreative"
+            @click="creativeConfirmationOpen = true"
+          >
+            Approve creative &amp; continue
+          </UButton>
+        </section>
       </div>
 
       <UModal v-model:open="confirmationOpen" title="Submit approval decisions">
@@ -499,6 +622,40 @@ const rejectedColumns: TableColumn<PipelineRejectedSegment>[] = [{
                 @click="submitDecisions"
               >
                 Confirm
+              </UButton>
+            </div>
+          </div>
+        </template>
+      </UModal>
+
+      <UModal v-model:open="creativeConfirmationOpen" title="Approve creative">
+        <template #body>
+          <div class="space-y-4">
+            <UAlert
+              color="warning"
+              variant="subtle"
+              icon="i-lucide-circle-alert"
+              title="This will proceed to AI video generation"
+              description="Continuing may spend credits."
+            />
+
+            <div class="flex justify-end gap-2">
+              <UButton
+                type="button"
+                color="neutral"
+                variant="ghost"
+                :disabled="isSubmittingCreative"
+                @click="creativeConfirmationOpen = false"
+              >
+                Cancel
+              </UButton>
+              <UButton
+                type="button"
+                :loading="isSubmittingCreative"
+                :disabled="isSubmittingCreative"
+                @click="approveCreative"
+              >
+                Approve &amp; continue
               </UButton>
             </div>
           </div>

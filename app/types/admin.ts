@@ -127,6 +127,8 @@ export type PipelineJobStatus
     | 'RUNNING'
     | 'AWAITING_MANIFEST_APPROVAL'
     | 'APPROVED'
+    | 'AWAITING_CREATIVE_APPROVAL'
+    | 'CREATIVE_APPROVED'
     | 'COMPLETED'
     | 'FAILED'
 

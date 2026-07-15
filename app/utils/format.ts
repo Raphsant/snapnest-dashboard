@@ -119,8 +119,10 @@ export function pipelineStatusColor(status: PipelineJobStatus) {
     case 'RUNNING':
       return 'info' as const
     case 'AWAITING_MANIFEST_APPROVAL':
+    case 'AWAITING_CREATIVE_APPROVAL':
       return 'warning' as const
     case 'APPROVED':
+    case 'CREATIVE_APPROVED':
       return 'primary' as const
     case 'COMPLETED':
       return 'success' as const
