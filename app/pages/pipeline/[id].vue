@@ -11,13 +11,15 @@ import {
   formatDateTime,
   formatDuration,
   formatEnumLabel,
+  getErrorStatus,
   getFetchErrorMessage,
-  pipelineStatusColor
+  pipelineStatusColor,
+  youtubeVideoId
 } from '~/utils/format'
 
 const route = useRoute()
 const jobId = route.params.id as string
-const fileNameHint = typeof route.query.fileName === 'string' ? route.query.fileName : null
+const labelHint = typeof route.query.label === 'string' ? route.query.label : null
 const api = useApi()
 const toast = useToast()
 
@@ -30,10 +32,21 @@ const errorMessage = computed(() =>
   error.value && !job.value ? getFetchErrorMessage(error.value) : null
 )
 
-const title = computed(() => fileNameHint ?? 'Pipeline job')
+// YOUTUBE jobs have no sourceFile, so derive the title from the URL once the job
+// loads; the label query param is only a pre-fetch placeholder (fileName for
+// FILE jobs, video id for YOUTUBE).
+const title = computed(() => {
+  if (job.value?.sourceType === 'YOUTUBE') {
+    return youtubeVideoId(job.value.sourceUrl) ?? job.value.sourceUrl ?? 'YouTube run'
+  }
+  return labelHint ?? 'Pipeline job'
+})
 
 const breadcrumbItems = computed((): BreadcrumbItem[] => [{
-  label: 'Pipeline',
+  label: 'Workflows',
+  to: '/workflows'
+}, {
+  label: 'Zombie Hour',
   to: '/pipeline'
 }, {
   label: title.value
@@ -181,22 +194,6 @@ function showCreativeFields(clip: PipelineClip): boolean {
     || clip.hook_prompt !== null
     || clip.close_prompt !== null
     || clip.post_copy !== null
-}
-
-function getErrorStatus(error: unknown): number | undefined {
-  if (!error || typeof error !== 'object') {
-    return undefined
-  }
-
-  if ('status' in error && typeof error.status === 'number') {
-    return error.status
-  }
-
-  if ('statusCode' in error && typeof error.statusCode === 'number') {
-    return error.statusCode
-  }
-
-  return undefined
 }
 
 async function submitDecisions() {
@@ -378,6 +375,8 @@ const rejectedColumns: TableColumn<PipelineRejectedSegment>[] = [{
           title="Pipeline failed"
           :description="job.error"
         />
+
+        <JobOutputs :job-id="jobId" :job-status="job.status" />
 
         <template v-if="manifest">
           <section>

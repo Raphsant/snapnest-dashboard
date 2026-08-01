@@ -174,9 +174,13 @@ export type PipelineManifest = {
   rejected_segments: PipelineRejectedSegment[]
 }
 
+export type PipelineSourceType = 'FILE' | 'YOUTUBE'
+
 export type AdminPipelineJob = {
   id: string
-  sourceFileId: string
+  sourceFileId: string | null
+  sourceType: PipelineSourceType
+  sourceUrl: string | null
   agencyId: string
   requestedById: string
   status: PipelineJobStatus
@@ -188,8 +192,40 @@ export type AdminPipelineJob = {
 }
 
 export type AdminPipelineJobListItem = AdminPipelineJob & {
+  /** Null for YOUTUBE jobs — render sourceUrl / video id instead. */
   sourceFile: {
     id: string
     fileName: string
-  }
+  } | null
+}
+
+export type CreateYoutubeJobRequest = {
+  sourceUrl: string
+}
+
+/**
+ * Delivery records attached to a pipeline output. The admin panel only
+ * surfaces the count, so the inner shape is intentionally opaque here.
+ */
+export type PipelineOutputDelivery = Record<string, unknown>
+
+export type AdminPipelineJobOutput = {
+  clipId: string
+  s3Key: string
+  sizeBytes: number
+  presignedUrl: string
+  deliveries: PipelineOutputDelivery[]
+}
+
+/**
+ * Static card definition for the /workflows landing page. Add an array entry
+ * to surface another workflow — no page rewrite required.
+ */
+export type WorkflowDefinition = {
+  id: string
+  name: string
+  description: string
+  icon: string
+  /** Route to this workflow's runs list. */
+  runsTo: string
 }

@@ -11,9 +11,9 @@ const links = [[{
     open.value = false
   }
 }, {
-  label: 'Pipeline',
+  label: 'Workflows',
   icon: 'i-lucide-workflow',
-  to: '/pipeline',
+  to: '/workflows',
   onSelect: () => {
     open.value = false
   }

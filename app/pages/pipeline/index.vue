@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { TableColumn, TableRow } from '@nuxt/ui'
+import type { BreadcrumbItem, TableColumn, TableRow } from '@nuxt/ui'
 import type { AdminPipelineJobListItem, PipelineJobStatus } from '~/types/admin'
-import { formatDateTime, formatEnumLabel, getFetchErrorMessage, pipelineStatusColor } from '~/utils/format'
+import { formatDateTime, formatEnumLabel, getFetchErrorMessage, pipelineStatusColor, youtubeVideoId } from '~/utils/format'
 
 const api = useApi()
 
@@ -44,10 +44,26 @@ watch(hasActiveJobs, (active) => {
   }
 }, { immediate: true })
 
+// FILE jobs carry sourceFile; YOUTUBE jobs have sourceFile === null and use
+// sourceUrl. Tolerate null on both paths — never dereference sourceFile blindly.
+function sourceLabel(job: AdminPipelineJobListItem): string {
+  if (job.sourceType === 'YOUTUBE') {
+    return youtubeVideoId(job.sourceUrl) ?? job.sourceUrl ?? '—'
+  }
+  return job.sourceFile?.fileName ?? '—'
+}
+
+const breadcrumbItems: BreadcrumbItem[] = [{
+  label: 'Workflows',
+  to: '/workflows'
+}, {
+  label: 'Zombie Hour'
+}]
+
 const columns: TableColumn<AdminPipelineJobListItem>[] = [{
-  id: 'fileName',
-  header: 'File',
-  accessorFn: row => row.sourceFile.fileName
+  id: 'source',
+  header: 'Source',
+  accessorFn: row => sourceLabel(row)
 }, {
   accessorKey: 'status',
   header: 'Status'
@@ -65,7 +81,7 @@ function onSelectJob(_event: Event, row: TableRow<AdminPipelineJobListItem>) {
   navigateTo({
     path: `/pipeline/${row.original.id}`,
     query: {
-      fileName: row.original.sourceFile.fileName
+      label: sourceLabel(row.original)
     }
   })
 }
@@ -74,7 +90,7 @@ function onSelectJob(_event: Event, row: TableRow<AdminPipelineJobListItem>) {
 <template>
   <UDashboardPanel id="pipeline">
     <template #header>
-      <UDashboardNavbar title="Pipeline">
+      <UDashboardNavbar title="Zombie Hour">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -99,6 +115,12 @@ function onSelectJob(_event: Event, row: TableRow<AdminPipelineJobListItem>) {
           </div>
         </template>
       </UDashboardNavbar>
+
+      <UDashboardToolbar>
+        <template #left>
+          <UBreadcrumb :items="breadcrumbItems" />
+        </template>
+      </UDashboardToolbar>
     </template>
 
     <template #body>
@@ -119,6 +141,25 @@ function onSelectJob(_event: Event, row: TableRow<AdminPipelineJobListItem>) {
         <template #loading>
           <div class="flex items-center justify-center py-12">
             <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
+          </div>
+        </template>
+
+        <template #source-cell="{ row }">
+          <div class="flex items-center gap-2">
+            <UBadge
+              class="shrink-0"
+              color="neutral"
+              variant="subtle"
+              size="sm"
+              :icon="row.original.sourceType === 'YOUTUBE' ? 'i-lucide-youtube' : 'i-lucide-file'"
+              :label="row.original.sourceType === 'YOUTUBE' ? 'YouTube' : 'File'"
+            />
+            <span
+              class="min-w-0 truncate text-sm text-default"
+              :title="sourceLabel(row.original)"
+            >
+              {{ sourceLabel(row.original) }}
+            </span>
           </div>
         </template>
 

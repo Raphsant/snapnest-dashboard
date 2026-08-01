@@ -40,10 +40,10 @@ export function formatDuration(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, '0')}`
 }
 
-export function formatBytes(sizeBytes: string): string {
+export function formatBytes(sizeBytes: string | number): string {
   const bytes = Number(sizeBytes)
   if (!Number.isFinite(bytes) || bytes < 0) {
-    return sizeBytes
+    return String(sizeBytes)
   }
   if (bytes === 0) {
     return '0 B'
@@ -57,6 +57,65 @@ export function formatBytes(sizeBytes: string): string {
   const value = bytes / Math.pow(1024, unitIndex)
 
   return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
+}
+
+const YOUTUBE_HOSTS = new Set([
+  'youtube.com',
+  'www.youtube.com',
+  'm.youtube.com',
+  'youtu.be',
+  'www.youtu.be'
+])
+
+/**
+ * Lenient client-side gate for the start-run form. The backend is the real
+ * validator — this only catches obviously-wrong input before the POST.
+ */
+export function isLikelyYoutubeUrl(value: string): boolean {
+  let url: URL
+  try {
+    url = new URL(value.trim())
+  } catch {
+    return false
+  }
+
+  return (url.protocol === 'http:' || url.protocol === 'https:')
+    && YOUTUBE_HOSTS.has(url.hostname.toLowerCase())
+}
+
+/** Extract the video id from common YouTube URL shapes, or null if unparseable. */
+export function youtubeVideoId(value: string | null | undefined): string | null {
+  if (!value) {
+    return null
+  }
+
+  let url: URL
+  try {
+    url = new URL(value.trim())
+  } catch {
+    return null
+  }
+
+  const host = url.hostname.toLowerCase().replace(/^www\./, '')
+
+  if (host === 'youtu.be') {
+    const id = url.pathname.slice(1).split('/')[0]
+    return id || null
+  }
+
+  if (host === 'youtube.com' || host === 'm.youtube.com') {
+    const vParam = url.searchParams.get('v')
+    if (vParam) {
+      return vParam
+    }
+
+    const match = url.pathname.match(/^\/(?:shorts|embed|v)\/([^/]+)/)
+    if (match) {
+      return match[1] ?? null
+    }
+  }
+
+  return null
 }
 
 export function formatEnumLabel(value: string): string {
@@ -112,6 +171,23 @@ export function getFetchErrorMessage(error: unknown): string {
   }
 
   return 'Something went wrong. Please try again.'
+}
+
+/** Pull an HTTP status off an ofetch error, tolerating `status` or `statusCode`. */
+export function getErrorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') {
+    return undefined
+  }
+
+  if ('status' in error && typeof error.status === 'number') {
+    return error.status
+  }
+
+  if ('statusCode' in error && typeof error.statusCode === 'number') {
+    return error.statusCode
+  }
+
+  return undefined
 }
 
 export function pipelineStatusColor(status: PipelineJobStatus) {
