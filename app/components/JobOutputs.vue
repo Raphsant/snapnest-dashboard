@@ -8,11 +8,13 @@ const props = defineProps<{
 }>()
 
 const api = useApi()
+const toast = useToast()
 
 const outputs = ref<AdminPipelineJobOutput[]>([])
 const isLoading = ref(false)
 const isRefreshing = ref(false)
 const loadError = ref<string | null>(null)
+const downloadingIds = reactive(new Set<string>())
 
 // Presigned URLs live 15 minutes. We auto-refetch once when a <video> reports an
 // expired link, then stop (a manual refresh re-arms this one-shot).
@@ -50,6 +52,25 @@ async function refreshLinks() {
   // A deliberate refresh re-arms the one-shot auto-refetch for the next expiry.
   didAutoRefresh.value = false
   await loadOutputs()
+}
+
+async function downloadOutput(output: AdminPipelineJobOutput) {
+  if (downloadingIds.has(output.clipId)) return
+  downloadingIds.add(output.clipId)
+  try {
+    const { url } = await api<{ url: string; fileName: string }>(
+      `/admin/pipeline/jobs/${props.jobId}/outputs/${output.clipId}/download-url`
+    )
+    window.location.href = url
+  } catch (err) {
+    toast.add({
+      title: 'Download failed',
+      description: getFetchErrorMessage(err),
+      color: 'error',
+    })
+  } finally {
+    downloadingIds.delete(output.clipId)
+  }
 }
 
 async function onVideoError() {
@@ -138,6 +159,17 @@ watch(() => props.jobStatus, (status, previous) => {
               :label="`Delivered · ${output.deliveries.length}`"
             />
           </div>
+
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            block
+            icon="i-lucide-download"
+            label="Download"
+            :loading="downloadingIds.has(output.clipId)"
+            @click="downloadOutput(output)"
+          />
         </div>
       </div>
     </div>
