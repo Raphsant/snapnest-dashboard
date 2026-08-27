@@ -191,9 +191,14 @@ function showCreativeFields(clip: PipelineClip): boolean {
 
   return isCreativeApprovalMode.value
     || job.value?.status === 'CREATIVE_APPROVED'
-    || clip.hook_prompt !== null
-    || clip.close_prompt !== null
+    || clip.hook_asset_id != null
+    || clip.hook_prompt != null
     || clip.post_copy !== null
+}
+
+/** Old jobs have prompts but no asset ids — render the legacy prompt panels. */
+function showLegacyPrompts(clip: PipelineClip): boolean {
+  return clip.hook_prompt != null && clip.hook_asset_id == null
 }
 
 async function submitDecisions() {
@@ -452,23 +457,61 @@ const rejectedColumns: TableColumn<PipelineRejectedSegment>[] = [{
                   </h4>
 
                   <dl class="space-y-3">
-                    <div>
-                      <dt class="text-xs font-medium text-muted">
-                        Hook prompt
-                      </dt>
-                      <dd class="mt-1 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-xs text-default">
-                        {{ clip.hook_prompt || '—' }}
-                      </dd>
-                    </div>
+                    <template v-if="showLegacyPrompts(clip)">
+                      <div>
+                        <dt class="text-xs font-medium text-muted">
+                          Hook prompt
+                        </dt>
+                        <dd class="mt-1 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-xs text-default">
+                          {{ clip.hook_prompt || '—' }}
+                        </dd>
+                      </div>
 
-                    <div>
-                      <dt class="text-xs font-medium text-muted">
-                        Close prompt
-                      </dt>
-                      <dd class="mt-1 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-xs text-default">
-                        {{ clip.close_prompt || '—' }}
-                      </dd>
-                    </div>
+                      <div>
+                        <dt class="text-xs font-medium text-muted">
+                          Close prompt
+                        </dt>
+                        <dd class="mt-1 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-xs text-default">
+                          {{ clip.close_prompt || '—' }}
+                        </dd>
+                      </div>
+                    </template>
+
+                    <template v-else>
+                      <div>
+                        <dt class="text-xs font-medium text-muted">
+                          Hook
+                        </dt>
+                        <dd class="mt-1 flex items-start gap-2 rounded-md bg-muted/50 p-2">
+                          <UBadge
+                            v-if="clip.hook_asset_id"
+                            color="neutral"
+                            variant="outline"
+                            :label="clip.hook_asset_id"
+                          />
+                          <p class="whitespace-pre-wrap font-mono text-xs text-default">
+                            {{ clip.hook_text || '—' }}
+                          </p>
+                        </dd>
+                      </div>
+
+                      <div>
+                        <dt class="text-xs font-medium text-muted">
+                          Outro
+                        </dt>
+                        <dd class="mt-1 flex items-start gap-2 rounded-md bg-muted/50 p-2">
+                          <UBadge
+                            v-if="clip.outro_asset_id"
+                            color="neutral"
+                            variant="outline"
+                            :label="clip.outro_asset_id"
+                          />
+                          <p class="whitespace-pre-wrap font-mono text-xs text-default">
+                            {{ clip.close_text || '—' }}
+                          </p>
+                        </dd>
+                      </div>
+                    </template>
 
                     <div>
                       <dt class="text-xs font-medium text-muted">

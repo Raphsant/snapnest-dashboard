@@ -150,8 +150,14 @@ export type PipelineClip = {
   summary: string
   rationale: string
   transcript: string
-  hook_prompt: string | null
-  close_prompt: string | null
+  /** New creative fields (per-clip asset picks). Absent on old jobs. */
+  hook_asset_id?: string | null
+  outro_asset_id?: string | null
+  hook_text?: string | null
+  close_text?: string | null
+  /** Legacy creative prompts — worker no longer writes these; old jobs still carry them. */
+  hook_prompt?: string | null
+  close_prompt?: string | null
   post_copy: string | null
   beep_timestamps: number[][]
 }
