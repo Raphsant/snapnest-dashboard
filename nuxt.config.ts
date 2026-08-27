@@ -5,7 +5,6 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@vueuse/nuxt'
   ],
-  devServer: { port: 3003 },
 
   ssr: false,
 
@@ -22,6 +21,7 @@ export default defineNuxtConfig({
       cognitoClientId: ''
     }
   },
+  devServer: { port: 3003 },
 
   compatibilityDate: '2026-06-30',
 

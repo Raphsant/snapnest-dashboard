@@ -58,7 +58,7 @@ async function downloadOutput(output: AdminPipelineJobOutput) {
   if (downloadingIds.has(output.clipId)) return
   downloadingIds.add(output.clipId)
   try {
-    const { url } = await api<{ url: string; fileName: string }>(
+    const { url } = await api<{ url: string, fileName: string }>(
       `/admin/pipeline/jobs/${props.jobId}/outputs/${output.clipId}/download-url`
     )
     window.location.href = url
@@ -66,7 +66,7 @@ async function downloadOutput(output: AdminPipelineJobOutput) {
     toast.add({
       title: 'Download failed',
       description: getFetchErrorMessage(err),
-      color: 'error',
+      color: 'error'
     })
   } finally {
     downloadingIds.delete(output.clipId)
