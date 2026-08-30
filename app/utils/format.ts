@@ -28,6 +28,40 @@ export function formatDateTime(iso: string): string {
   })
 }
 
+const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['year', 31536000],
+  ['month', 2592000],
+  ['day', 86400],
+  ['hour', 3600],
+  ['minute', 60]
+]
+
+/**
+ * Compact relative stamp ("3d ago", "5m ago"). Snapshot only — it does not tick,
+ * so pair it with a `title` carrying the absolute formatDateTime value.
+ */
+export function formatRelativeTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) {
+    return iso
+  }
+
+  const seconds = Math.round((date.getTime() - Date.now()) / 1000)
+  const magnitude = Math.abs(seconds)
+  const formatter = new Intl.RelativeTimeFormat(undefined, {
+    numeric: 'auto',
+    style: 'narrow'
+  })
+
+  for (const [unit, secondsPerUnit] of RELATIVE_UNITS) {
+    if (magnitude >= secondsPerUnit) {
+      return formatter.format(Math.round(seconds / secondsPerUnit), unit)
+    }
+  }
+
+  return formatter.format(seconds, 'second')
+}
+
 export function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) {
     return '—'

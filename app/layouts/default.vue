@@ -17,6 +17,13 @@ const links = [[{
   onSelect: () => {
     open.value = false
   }
+}, {
+  label: 'To Publish',
+  icon: 'i-lucide-send',
+  to: '/pipeline/outputs',
+  onSelect: () => {
+    open.value = false
+  }
 }]] satisfies NavigationMenuItem[][]
 </script>
 

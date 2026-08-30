@@ -227,6 +227,27 @@ export type AdminPipelineJobOutput = {
   sizeBytes: number
   presignedUrl: string
   deliveries: PipelineOutputDelivery[]
+  /** ISO timestamp once the clip has been published, null while unposted. */
+  postedAt: string | null
+}
+
+/**
+ * Cross-job outputs listing (`GET /admin/pipeline/outputs`). Metadata only —
+ * playback lives on the job detail page, so there are no URLs here.
+ */
+export type AdminPipelineOutputListItem = {
+  jobId: string
+  clipId: string
+  postedAt: string | null
+  completedAt: string
+  jobCreatedAt: string
+}
+
+export type AdminPipelineOutputListResponse = {
+  items: AdminPipelineOutputListItem[]
+  total: number
+  limit: number
+  offset: number
 }
 
 /**
