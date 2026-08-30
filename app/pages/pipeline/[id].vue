@@ -63,6 +63,8 @@ const confirmationOpen = ref(false)
 const isSubmitting = ref(false)
 const creativeConfirmationOpen = ref(false)
 const isSubmittingCreative = ref(false)
+const reopenConfirmationOpen = ref(false)
+const isReopening = ref(false)
 
 const TERMINAL_STATUSES: PipelineJobStatus[] = ['COMPLETED', 'FAILED']
 
@@ -119,9 +121,13 @@ watch(
   () => [job.value?.status, clips.value.map(clip => clip.id).join(',')] as const,
   ([jobStatus]) => {
     if (jobStatus === 'AWAITING_MANIFEST_APPROVAL') {
+      // Seed from the clip's own verdict, not `false`: a reopened job carries
+      // already-approved clips, and seeding those false would silently
+      // de-approve every delivered clip on submit. First-pass clips have
+      // `approved === null`, so they still start out rejected.
       if (!decisionsTouched.value) {
         approvalDecisions.value = Object.fromEntries(
-          clips.value.map(clip => [clip.id, false])
+          clips.value.map(clip => [clip.id, clip.approved === true])
         )
       }
       return
@@ -137,6 +143,12 @@ watch(
 watch(isCreativeApprovalMode, (active) => {
   if (!active) {
     creativeConfirmationOpen.value = false
+  }
+})
+
+watch(() => job.value?.status, (jobStatus) => {
+  if (jobStatus !== 'COMPLETED') {
+    reopenConfirmationOpen.value = false
   }
 })
 
@@ -199,6 +211,11 @@ function showCreativeFields(clip: PipelineClip): boolean {
 /** Old jobs have prompts but no asset ids — render the legacy prompt panels. */
 function showLegacyPrompts(clip: PipelineClip): boolean {
   return clip.hook_prompt != null && clip.hook_asset_id == null
+}
+
+/** An assembly checkpoint means this clip's video already shipped. */
+function isDelivered(clip: PipelineClip): boolean {
+  return clip.assembled != null
 }
 
 async function submitDecisions() {
@@ -286,6 +303,43 @@ async function approveCreative() {
   }
 }
 
+async function reopenJob() {
+  isReopening.value = true
+
+  try {
+    // Unlike approve / approve-creative, the reopen response is not consumed —
+    // refresh() re-seeds the decisions and restarts polling from the new state.
+    await api<unknown>(`/admin/pipeline/jobs/${jobId}/reopen`, { method: 'POST' })
+
+    reopenConfirmationOpen.value = false
+    await refresh()
+
+    toast.add({
+      title: 'Job reopened',
+      color: 'success'
+    })
+  } catch (reopenError: unknown) {
+    const errorStatus = getErrorStatus(reopenError)
+    reopenConfirmationOpen.value = false
+
+    if (errorStatus === 409) {
+      toast.add({
+        title: 'Job is no longer completed',
+        color: 'error'
+      })
+      await refresh()
+      return
+    }
+
+    toast.add({
+      title: getFetchErrorMessage(reopenError),
+      color: 'error'
+    })
+  } finally {
+    isReopening.value = false
+  }
+}
+
 function formatBlockRange(start?: number, end?: number): string {
   if (start === undefined && end === undefined) {
     return '—'
@@ -370,6 +424,20 @@ const rejectedColumns: TableColumn<PipelineRejectedSegment>[] = [{
           <span class="text-sm text-dimmed">
             Created {{ formatDateTime(job.createdAt) }}
           </span>
+
+          <UButton
+            v-if="job.status === 'COMPLETED'"
+            type="button"
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-rotate-ccw"
+            label="Reopen for more clips"
+            class="ml-auto"
+            :disabled="isReopening"
+            :loading="isReopening"
+            @click="reopenConfirmationOpen = true"
+          />
         </section>
 
         <UAlert
@@ -419,6 +487,18 @@ const rejectedColumns: TableColumn<PipelineRejectedSegment>[] = [{
                       variant="outline"
                       :label="formatEnumLabel(clip.confidence)"
                     />
+                    <UTooltip
+                      v-if="isApprovalMode && isDelivered(clip)"
+                      text="Already delivered — un-approving will not delete the delivered video."
+                    >
+                      <UBadge
+                        color="success"
+                        variant="subtle"
+                        size="sm"
+                        icon="i-lucide-circle-check"
+                        label="Delivered"
+                      />
+                    </UTooltip>
                     <UButtonGroup v-if="isApprovalMode" size="xs">
                       <UButton
                         type="button"
@@ -698,6 +778,40 @@ const rejectedColumns: TableColumn<PipelineRejectedSegment>[] = [{
                 @click="approveCreative"
               >
                 Approve &amp; continue
+              </UButton>
+            </div>
+          </div>
+        </template>
+      </UModal>
+
+      <UModal v-model:open="reopenConfirmationOpen" title="Reopen for more clips">
+        <template #body>
+          <div class="space-y-4">
+            <UAlert
+              color="warning"
+              variant="subtle"
+              icon="i-lucide-circle-alert"
+              title="This returns the job to manifest approval"
+              description="Already-approved clips stay approved, and their delivered videos are left in place."
+            />
+
+            <div class="flex justify-end gap-2">
+              <UButton
+                type="button"
+                color="neutral"
+                variant="ghost"
+                :disabled="isReopening"
+                @click="reopenConfirmationOpen = false"
+              >
+                Cancel
+              </UButton>
+              <UButton
+                type="button"
+                :loading="isReopening"
+                :disabled="isReopening"
+                @click="reopenJob"
+              >
+                Reopen
               </UButton>
             </div>
           </div>

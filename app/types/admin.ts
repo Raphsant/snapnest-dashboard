@@ -160,6 +160,12 @@ export type PipelineClip = {
   close_prompt?: string | null
   post_copy: string | null
   beep_timestamps: number[][]
+  /**
+   * Assembly checkpoint, written once this clip's video has been rendered and
+   * delivered. The admin panel only checks for presence, so the inner shape is
+   * intentionally opaque here.
+   */
+  assembled?: Record<string, unknown> | null
 }
 
 /** Only `category` is guaranteed by the pipeline; the rest pass through unvalidated. */
