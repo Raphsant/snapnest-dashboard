@@ -86,14 +86,21 @@ const shouldPoll = computed(() =>
   && !hasUnsavedDecisions.value
 )
 
-const approvedCount = computed(() =>
-  clips.value.filter(clip => approvalDecisions.value[clip.id]).length
+/** Delivered clips are locked to approved, so only the rest are decidable. */
+const decidableClips = computed(() =>
+  clips.value.filter(clip => !isDelivered(clip))
 )
 
-const rejectedCount = computed(() => clips.value.length - approvedCount.value)
+const approvedCount = computed(() =>
+  decidableClips.value.filter(clip => approvalDecisions.value[clip.id]).length
+)
+
+const rejectedCount = computed(() =>
+  decidableClips.value.length - approvedCount.value
+)
 
 const approvedClipTitles = computed(() =>
-  clips.value
+  decidableClips.value
     .filter(clip => approvalDecisions.value[clip.id])
     .map(clip => clip.title || clip.id)
 )
@@ -123,11 +130,12 @@ watch(
     if (jobStatus === 'AWAITING_MANIFEST_APPROVAL') {
       // Seed from the clip's own verdict, not `false`: a reopened job carries
       // already-approved clips, and seeding those false would silently
-      // de-approve every delivered clip on submit. First-pass clips have
-      // `approved === null`, so they still start out rejected.
+      // de-approve them on submit. Delivered clips are locked to approved
+      // regardless of their verdict. First-pass clips have `approved === null`,
+      // so they still start out rejected.
       if (!decisionsTouched.value) {
         approvalDecisions.value = Object.fromEntries(
-          clips.value.map(clip => [clip.id, clip.approved === true])
+          clips.value.map(clip => [clip.id, isDelivered(clip) || clip.approved === true])
         )
       }
       return
@@ -181,7 +189,7 @@ function setClipDecision(clipId: string, approved: boolean) {
 
 function setAllDecisions(approved: boolean) {
   approvalDecisions.value = Object.fromEntries(
-    clips.value.map(clip => [clip.id, approved])
+    clips.value.map(clip => [clip.id, isDelivered(clip) || approved])
   )
   decisionsTouched.value = true
 }
@@ -197,15 +205,17 @@ function clipCardClass(clipId: string): string | undefined {
 }
 
 function showCreativeFields(clip: PipelineClip): boolean {
-  if (clip.approved !== true) {
-    return false
+  const hasCreativeContent = clip.hook_asset_id != null
+    || clip.hook_prompt != null
+    || Boolean(clip.post_copy?.trim())
+    || clip.captions != null
+
+  if (hasCreativeContent) {
+    return true
   }
 
-  return isCreativeApprovalMode.value
-    || job.value?.status === 'CREATIVE_APPROVED'
-    || clip.hook_asset_id != null
-    || clip.hook_prompt != null
-    || clip.post_copy !== null
+  return clip.approved === true
+    && (isCreativeApprovalMode.value || job.value?.status === 'CREATIVE_APPROVED')
 }
 
 /** Old jobs have prompts but no asset ids — render the legacy prompt panels. */
@@ -229,7 +239,9 @@ async function submitDecisions() {
         body: {
           approvals: clips.value.map(clip => ({
             clipId: clip.id,
-            approved: Boolean(approvalDecisions.value[clip.id])
+            // Backend requires every clip; delivered ones always go as approved.
+            approved: isDelivered(clip)
+              || Boolean(approvalDecisions.value[clip.id])
           }))
         }
       }
@@ -449,7 +461,7 @@ const rejectedColumns: TableColumn<PipelineRejectedSegment>[] = [{
           :description="job.error"
         />
 
-        <JobOutputs :job-id="jobId" :job-status="job.status" />
+        <JobOutputs :job-id="jobId" :job-status="job.status" :clips="clips" />
 
         <template v-if="manifest">
           <section>
@@ -489,7 +501,7 @@ const rejectedColumns: TableColumn<PipelineRejectedSegment>[] = [{
                     />
                     <UTooltip
                       v-if="isApprovalMode && isDelivered(clip)"
-                      text="Already delivered — un-approving will not delete the delivered video."
+                      text="Already delivered — locked as approved."
                     >
                       <UBadge
                         color="success"
@@ -499,7 +511,7 @@ const rejectedColumns: TableColumn<PipelineRejectedSegment>[] = [{
                         label="Delivered"
                       />
                     </UTooltip>
-                    <UButtonGroup v-if="isApprovalMode" size="xs">
+                    <UButtonGroup v-if="isApprovalMode && !isDelivered(clip)" size="xs">
                       <UButton
                         type="button"
                         color="error"

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import type { AdminPipelineJobOutput, PipelineJobStatus } from '~/types/admin'
+import type { AdminPipelineJobOutput, PipelineClip, PipelineJobStatus } from '~/types/admin'
 import { formatBytes, formatDateTime, formatRelativeTime, getFetchErrorMessage } from '~/utils/format'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   jobId: string
   jobStatus: PipelineJobStatus
-}>()
+  clips?: PipelineClip[]
+}>(), {
+  clips: () => []
+})
 
 const api = useApi()
 const toast = useToast()
@@ -16,6 +19,18 @@ const isRefreshing = ref(false)
 const loadError = ref<string | null>(null)
 const downloadingIds = reactive(new Set<string>())
 const postingIds = reactive(new Set<string>())
+
+const clipsById = computed(() =>
+  new Map(props.clips.map(clip => [clip.id, clip]))
+)
+
+const selectedClip = ref<PipelineClip | null>(null)
+const captionsOpen = ref(false)
+
+function openCaptions(clip: PipelineClip) {
+  selectedClip.value = clip
+  captionsOpen.value = true
+}
 
 // Presigned URLs live 15 minutes. We auto-refetch once when a <video> reports an
 // expired link, then stop (a manual refresh re-arms this one-shot).
@@ -244,7 +259,7 @@ watch(() => props.jobStatus, (status, previous) => {
             </div>
           </div>
 
-          <div class="flex gap-1">
+          <div class="flex flex-wrap gap-1">
             <UButton
               class="flex-1"
               color="neutral"
@@ -256,6 +271,17 @@ watch(() => props.jobStatus, (status, previous) => {
               :loading="downloadingIds.has(output.clipId)"
               @click="downloadOutput(output)"
             />
+            <UTooltip v-if="clipsById.has(output.clipId)" text="Captions">
+              <UButton
+                type="button"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                icon="i-lucide-captions"
+                aria-label="Captions"
+                @click="openCaptions(clipsById.get(output.clipId)!)"
+              />
+            </UTooltip>
             <UButton
               class="flex-1"
               type="button"
@@ -280,5 +306,11 @@ watch(() => props.jobStatus, (status, previous) => {
     <p v-else class="text-sm text-muted">
       No output clips available yet.
     </p>
+
+    <ClipCaptionsModal
+      v-if="selectedClip"
+      v-model:open="captionsOpen"
+      :clip="selectedClip"
+    />
   </section>
 </template>

@@ -159,6 +159,7 @@ export type PipelineClip = {
   hook_prompt?: string | null
   close_prompt?: string | null
   post_copy: string | null
+  captions?: { youtube: string, tiktok: string, instagram: string } | null
   beep_timestamps: number[][]
   /**
    * Assembly checkpoint, written once this clip's video has been rendered and
